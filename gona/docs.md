@@ -1,7 +1,7 @@
 
 
 # gona
-`import "."`
+`import "github.com/netactuate/gona/gona"`
 
 * [Overview](#pkg-overview)
 * [Index](#pkg-index)
