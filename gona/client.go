@@ -170,10 +170,11 @@ func (c *Client) do(req *http.Request, data any) error {
 		return fmt.Errorf("could not unmarshal response %q: %w", string(body), err)
 	}
 
-	if resp.StatusCode == http.StatusOK && r.Code == http.StatusOK {
-		return nil
+	if resp.StatusCode != http.StatusOK || r.Code != http.StatusOK {
+		return fmt.Errorf("got an error response on %s %s: code %d, response %+v", req.Method, req.URL, resp.StatusCode, r.Data)
 	}
-
-        return fmt.Errorf("got an error response on %s %s: code %d, response %s: %+v", req.Method, req.URL, resp.StatusCode, r.Message, r.Data)
-//	return fmt.Errorf("got an error response on %s %s: code %d, response %+v", req.Method, req.URL, resp.StatusCode, r)
+    
+	return nil
 }
+
+

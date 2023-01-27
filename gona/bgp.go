@@ -6,19 +6,11 @@ import (
 	"strconv"
 )
 
-type BGPSessions struct {
-	Result  string      `json:"result"`
-	Message interface{} `json:"message"`
-	Data    struct {
-		Sessions map[string]*BGPSession
-	}
-}
-
 type BGPSession struct {
 	ID             int         `json:"id"`
 	CustomerIP     string      `json:"customer_peer_ip"`
 	GroupID        int         `json:"group_id"`
-	Locked         string      `json:"locked"`
+	Locked         int         `json:"locked"`
 	Description    string      `json:"description"`
 	State          interface{} `json:"state"`
 	RoutesReceived interface{} `json:"routes_received"`
@@ -34,8 +26,8 @@ type BGPSession struct {
 	Longitude      string      `json:"longitude"`
 	GroupName      string      `json:"group_name"`
 	ProviderIPType string      `json:"provider_ip_type"`
-	ProviderAsn    string      `json:"provider_asn"`
-	CustomerAsn    string      `json:"customer_asn"`
+	ProviderAsn    int         `json:"provider_asn,string"`
+	CustomerAsn    int         `json:"customer_asn,string"`
 }
 
 type Prefix struct {
@@ -53,7 +45,7 @@ type Prefix struct {
 }
 
 func (s *BGPSession) IsLocked() bool {
-	return "1" == s.Locked
+	return s.Locked == 1
 }
 
 func (s *BGPSession) IsProviderIPTypeV4() bool {
@@ -62,48 +54,45 @@ func (s *BGPSession) IsProviderIPTypeV4() bool {
 
 // GetBGPSession external method on Client to get your BGP session
 func (c *Client) GetBGPSession(id int) (*BGPSession, error) {
-	var sessions struct {
-		Data *BGPSession `json:"data"`
-	}
+	var sessions *BGPSession
 	err := c.get("bgp/bgpsession/"+strconv.Itoa(id), &sessions)
 	if err != nil {
 		return nil, err
 	}
 
-	return sessions.Data, nil
+	return sessions, nil
 }
 
 // GetBGPSessions external method on Client to get BGP sessions
 func (c *Client) GetBGPSessions(mbPkgID int) ([]*BGPSession, error) {
-
-	var allSessions BGPSessions
+	var allSessions []*BGPSession
 
 	err := c.get("bgp/bgpsessions", &allSessions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("BGPSessions1: %w", err)
 	}
-	if len(allSessions.Data.Sessions) == 0 {
+	if len(allSessions) == 0 {
 		return nil, nil
 	}
 
 	ips, err := c.GetIPs(mbPkgID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("BGPSessions2: %w", err)
 	}
 	if len(ips.IPv4) == 0 && len(ips.IPv6) == 0 {
-		return nil, err
+		return nil, fmt.Errorf("BGPSessions3: %w", err)
 	}
 
 	ipsMap := *ips.GetIPsMap()
 
 	var sessions []*BGPSession
 
-	for _, session := range allSessions.Data.Sessions {
+	for _, session := range allSessions {
 		_, exists := ipsMap[session.CustomerIP]
 		if exists {
 			ss, err := c.GetBGPSession(session.ID)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("BGPSessions4: %w", err)
 			}
 			sessions = append(sessions, ss)
 		}
@@ -137,14 +126,10 @@ func (c *Client) CreateBGPSessions(mbPkgID int, groupID int, isIPV6 bool, redund
 		return nil, fmt.Errorf("converting data to json: %w", err)
 	}
 
-	var sessions struct {
-		Data *BGPSession `json:"data"`
-	}
-
-	path := "bgp/bgpcreatesessions"
-	if err := c.post(path, postData, &sessions); err != nil {
+	var sessions *BGPSession
+	if err := c.post("bgp/bgpcreatesessions", postData, &sessions); err != nil {
 		return nil, fmt.Errorf("posting data: %w", err)
 	}
 
-	return sessions.Data, nil
+	return sessions, nil
 }
